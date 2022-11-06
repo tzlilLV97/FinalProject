@@ -97,7 +97,7 @@ def build_sequence_features(dataset_df, nucleotides_to_position_mapping,
     dataset_df['target'] = dataset_df['target'].apply(lambda s: s[:-3] + 'N' + s[-2:])
 
     if include_sequence_features:
-        final_result = np.zeros((len(dataset_df), (23*16)+1),
+        final_result = np.zeros((len(dataset_df), (23*16)+1+12*4),
                                 dtype=np.int8) if include_distance_feature else \
             np.zeros((len(dataset_df), 23*16), dtype=np.int8)
     else:
@@ -113,15 +113,21 @@ def build_sequence_features(dataset_df, nucleotides_to_position_mapping,
         else:
             intersection_matrices = None
         ##BUILD THE NEW FEATURE
-     #   if include_more_feature:
-     #       if include_sequence_features:
-     #           final_result[i, :-1] = intersection_matrices.flatten()
-     #       final_result[i].append(one_hot_encode(dataset_df["more"].iloc[i]))
-     #need to create - one_hotter and append to the dataset
+       # if include_more_feature:
+        if 1:
+           if include_sequence_features:
+               final_result[i, :-1-12*4] = intersection_matrices.flatten()
+           # print(final_result[i])
+           # print(one_hot_encode(dataset_df["SixBefore"].iloc[i]))
+           final_result[i,-12*4-1:-12*2-1] = one_hot_encode(dataset_df["SixAfter"].iloc[i])
+           final_result[i, -12 *2-1:- 1] = one_hot_encode(dataset_df["SixBefore"].iloc[i])
+          # final_result[i].append(one_hot_encode(dataset_df["SixBefore"].iloc[i]))
+         #.  final_result[i].append(one_hot_encode(dataset_df["SixAfter"].iloc[i]))
+  #   need to create - one_hotter and append to the dataset
         ### END OF NEW FEATURE
         if include_distance_feature:
-            if include_sequence_features:
-                final_result[i, :-1] = intersection_matrices.flatten()
+        #    if include_sequence_features:
+               # final_result[i, :-1] = intersection_matrices.flatten()
             final_result[i, -1] = dataset_df["distance"].iloc[i]
         else:
             final_result[i, :] = intersection_matrices.flatten()
@@ -225,7 +231,7 @@ def extract_model_name(model_type, include_distance_feature, include_sequence_fe
         model_name += "-balanced" if balanced else ""
         model_name += "-foldTrans" if trans_all_fold else ""
         model_name += "-positiveTrans" if trans_only_positive else ""
-    
+
     return model_name
 ##########################################################################
 
