@@ -79,7 +79,7 @@ def create_negatives(experiment_df, cas_offinder_optional_offtargets_path=genera
     negative_df = pd.read_table(cas_offinder_optional_offtargets_path)
     negative_df['label'] = 0
     negative_df = negative_df[['chrom', 'chromStart', 'strand',
-                               'offtarget_sequence', 'distance', 'target', 'label']]
+                               'offtarget_sequence', 'distance', 'target', 'label','SixAfter','SixBefore']]
     negative_df['offtarget_sequence'] = negative_df['offtarget_sequence'].str.upper()
 
     print("number of optional off targets before filtering: ", len(negative_df))
