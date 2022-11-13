@@ -99,7 +99,7 @@ def build_sequence_features(dataset_df, nucleotides_to_position_mapping,
     if include_sequence_features:
         final_result = np.zeros((len(dataset_df), (23*16)+1+12*4),
                                 dtype=np.int8) if include_distance_feature else \
-            np.zeros((len(dataset_df), 23*16), dtype=np.int8)
+            np.zeros((len(dataset_df), 23*16), dtype=np.int8) ### added 12*4
     else:
         final_result = np.zeros((len(dataset_df), 1), dtype=np.int8)
     for i, (seq1, seq2) in enumerate(zip(dataset_df["target"], dataset_df["offtarget_sequence"])):
@@ -116,7 +116,17 @@ def build_sequence_features(dataset_df, nucleotides_to_position_mapping,
        # if include_more_feature:
         if 1:
            if include_sequence_features:
-               final_result[i, :-1-12*4] = intersection_matrices.flatten()
+               temp = intersection_matrices.flatten()
+       #        if len(temp)<369:
+        #           temp = temp + [0 for i in range(369-len(temp))]
+              # print(temp)
+              #  if len(temp)<350:
+              #      print(temp)
+               if include_distance_feature:
+                   final_result[i, :-1-12*4] = temp
+               else:
+                   final_result[i, :] = temp
+                   #intersection_matrices.flatten()
            # print(final_result[i])
            # print(one_hot_encode(dataset_df["SixBefore"].iloc[i]))
            final_result[i,-12*4-1:-12*2-1] = one_hot_encode(dataset_df["SixAfter"].iloc[i])
@@ -129,22 +139,37 @@ def build_sequence_features(dataset_df, nucleotides_to_position_mapping,
         #    if include_sequence_features:
                # final_result[i, :-1] = intersection_matrices.flatten()
             final_result[i, -1] = dataset_df["distance"].iloc[i]
+
         else:
             final_result[i, :] = intersection_matrices.flatten()
-    print("START")
-    print("**********************")
-    print(final_result)
-    print(final_result[0])
-    print(len(final_result[0]))
-    print(len(final_result))
-    print("*#$^#$^%$#V")
+
+    # print("START")
+    # print("**********************")
+    # print(final_result)
+    # print(final_result[0])
+    # print(len(final_result[0]))
+    # print(len(final_result))
+    # print("*#$^#$^%$#V")
     return final_result
 ###ONE HOTTER  - name in progress
 def one_hot_encode(seq):
     mapping = dict(zip("ACGT", range(4)))
-    seq2 = [mapping[i] for i in seq]
-    temp = np.eye(4)[seq2]
-    return [item for sub in temp for item in sub]
+    if len(seq)!=6:
+        return [0 for i in range(24)]
+    try:
+        seq2 = [mapping[i] for i in seq]
+        temp = np.eye(4)[seq2]
+        return [item for sub in temp for item in sub]
+    except:
+        print(seq)
+        return [0 for i in range(24)]
+        # for ele in seq:
+        #     if ele=="N":
+        #         return [0 for i in range(24)]
+        # if len(seq)<6:
+        #     return [0 for i in range(24)]
+        #
+    #return [item for sub in temp for item in sub]
 ##########################################################################
 
 
