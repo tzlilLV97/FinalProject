@@ -62,10 +62,12 @@ def data_preprocessing(positive_df, negative_df, trans_type, data_type, trans_al
 
 def train(positive_df, negative_df, targets, nucleotides_to_position_mapping,
           data_type='CHANGEseq', model_type="classifier", k_fold_number=10,
-          include_distance_feature=False, include_sequence_features=True,
+          include_distance_feature=False, include_sequence_features=True,extra_nucleotides=0,
           balanced=True, trans_type="ln_x_plus_one_trans", trans_all_fold=False, ##CHANGE BALANCE TO FALSE
           trans_only_positive=False, exclude_targets_without_positives=False, skip_num_folds=0,
           path_prefix="", xgb_model=None, transfer_learning_type="add", save_model=True, n_trees=1000):
+    print("HEy FROM MAMA MIA")
+    print("Number of NUCLES : " + str(extra_nucleotides))
     """
     The train function
     """
@@ -95,12 +97,12 @@ def train(positive_df, negative_df, targets, nucleotides_to_position_mapping,
         positive_sequence_features_train = build_sequence_features(
                 positive_df_train, nucleotides_to_position_mapping,
                 include_distance_feature=include_distance_feature,
-                include_sequence_features=include_sequence_features)
+                include_sequence_features=include_sequence_features,extra_nucleotides=extra_nucleotides)
         if model_type in ("classifier", "regression_with_negatives"):
             negative_sequence_features_train = build_sequence_features(
                 negative_df_train, nucleotides_to_position_mapping,
                 include_distance_feature=include_distance_feature,
-                include_sequence_features=include_sequence_features)
+                include_sequence_features=include_sequence_features,extra_nucleotides=extra_nucleotides)
             sequence_features_train = np.concatenate(
                 (negative_sequence_features_train, positive_sequence_features_train))
         elif model_type == 'regression_without_negatives':
@@ -180,7 +182,7 @@ def train(positive_df, negative_df, targets, nucleotides_to_position_mapping,
 
         if save_model:
             dir_path = extract_model_path(model_type, k_fold_number, include_distance_feature,
-                                          include_sequence_features, balanced, trans_type, trans_all_fold,
+                                          include_sequence_features,extra_nucleotides, balanced, trans_type, trans_all_fold,
                                           trans_only_positive, exclude_targets_without_positives,
                                           i+skip_num_folds, path_prefix)
             Path(dir_path).parent.mkdir(parents=True, exist_ok=True)
