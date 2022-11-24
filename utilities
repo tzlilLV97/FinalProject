@@ -84,22 +84,22 @@ def create_nucleotides_to_position_mapping():
 
 def build_sequence_features(dataset_df, nucleotides_to_position_mapping,
                             include_distance_feature=False,
-                            include_sequence_features=True):
+                            include_sequence_features=True,
+                            extra_nucleotides=0):
     """
     Build sequence features using the nucleotides to position mapping
     """
     if (not include_distance_feature) and (not include_sequence_features):
         raise ValueError(
             'include_distance_feature and include_sequence_features can not be both False')
-
     # convert dataset_df["target"] -3 position to 'N'
     print("Converting the [-3] positions in each sgRNA sequence to 'N'")
     dataset_df['target'] = dataset_df['target'].apply(lambda s: s[:-3] + 'N' + s[-2:])
-
     if include_sequence_features:
-        final_result = np.zeros((len(dataset_df), (23*16)+1+12*4),
-                                dtype=np.int8) if include_distance_feature else \
-            np.zeros((len(dataset_df), 23*16), dtype=np.int8) ### added 12*4
+        if (include_distance_feature):
+            final_result = np.zeros((len(dataset_df), (23 * 16) + 1 + (extra_nucleotides * 2) * 4),dtype=np.int8)
+        else:
+            final_result = np.zeros((len(dataset_df), (23 * 16) + (extra_nucleotides * 2) * 4), dtype=np.int8)
     else:
         final_result = np.zeros((len(dataset_df), 1), dtype=np.int8)
     for i, (seq1, seq2) in enumerate(zip(dataset_df["target"], dataset_df["offtarget_sequence"])):
@@ -112,64 +112,51 @@ def build_sequence_features(dataset_df, nucleotides_to_position_mapping,
                                       matrix_positions[1]] = 1
         else:
             intersection_matrices = None
-        ##BUILD THE NEW FEATURE
-       # if include_more_feature:
-        if 1:
-           if include_sequence_features:
-               temp = intersection_matrices.flatten()
-       #        if len(temp)<369:
-        #           temp = temp + [0 for i in range(369-len(temp))]
-              # print(temp)
-              #  if len(temp)<350:
-              #      print(temp)
-               if include_distance_feature:
-                   final_result[i, :-1-12*4] = temp
-               else:
-                   final_result[i, :] = temp
-                   #intersection_matrices.flatten()
-           # print(final_result[i])
-           # print(one_hot_encode(dataset_df["SixBefore"].iloc[i]))
-           final_result[i,-12*4-1:-12*2-1] = one_hot_encode(dataset_df["SixAfter"].iloc[i])
-           final_result[i, -12 *2-1:- 1] = one_hot_encode(dataset_df["SixBefore"].iloc[i])
-          # final_result[i].append(one_hot_encode(dataset_df["SixBefore"].iloc[i]))
-         #.  final_result[i].append(one_hot_encode(dataset_df["SixAfter"].iloc[i]))
-  #   need to create - one_hotter and append to the dataset
-        ### END OF NEW FEATURE
+        if extra_nucleotides:
+            if include_sequence_features:
+                temp = intersection_matrices.flatten()
+                if include_distance_feature:
+                    final_result[i, :-1-(extra_nucleotides*2)*4] = temp
+                else:
+                    final_result[i, :-(extra_nucleotides*2)*4] = temp
+            #print(one_hot_encode(dataset_df["SixAfter"].iloc[i][:extra_nucleotides],extra_nucleotides))
+            final_result[i,-(extra_nucleotides*2)*4-1:-(extra_nucleotides*2)*2-1] = one_hot_encode(dataset_df["SixAfter"].iloc[i][:extra_nucleotides],extra_nucleotides)
+            #print(one_hot_encode(dataset_df["SixBefore"].iloc[i][-extra_nucleotides:],extra_nucleotides))
+            final_result[i, -(extra_nucleotides*2)*2-1:- 1] = one_hot_encode(dataset_df["SixBefore"].iloc[i][-extra_nucleotides:],extra_nucleotides)
         if include_distance_feature:
-        #    if include_sequence_features:
-               # final_result[i, :-1] = intersection_matrices.flatten()
             final_result[i, -1] = dataset_df["distance"].iloc[i]
-
-        else:
+        elif (not include_sequence_features):
             final_result[i, :] = intersection_matrices.flatten()
-
-    # print("START")
-    # print("**********************")
-    # print(final_result)
-    # print(final_result[0])
-    # print(len(final_result[0]))
-    # print(len(final_result))
-    # print("*#$^#$^%$#V")
     return final_result
+
+
 ###ONE HOTTER  - name in progress
-def one_hot_encode(seq):
+def one_hot_encode(seq,extra_nucleotides):
     mapping = dict(zip("ACGT", range(4)))
-    if len(seq)!=6:
-        return [0 for i in range(24)]
+    if len(seq)!=extra_nucleotides:
+        return [0 for i in range(extra_nucleotides*4)]
     try:
         seq2 = [mapping[i] for i in seq]
         temp = np.eye(4)[seq2]
         return [item for sub in temp for item in sub]
     except:
-        print(seq)
-        return [0 for i in range(24)]
-        # for ele in seq:
-        #     if ele=="N":
-        #         return [0 for i in range(24)]
-        # if len(seq)<6:
-        #     return [0 for i in range(24)]
-        #
-    #return [item for sub in temp for item in sub]
+        temp = [0 for i in range(len(seq))]
+        for idx, ele in enumerate(seq):
+            if ele=="N":
+                temp[idx] = [0.25,0.25,0.25,0.25]
+                    ##np.eye(4)[mapping[random.choice(["A","C","G","T"])]]
+            if ele=="R":
+                temp[idx] = [0.5,0,0.5,0]
+                    #np.eye(4)[mapping[random.choice(["A","G"])]]
+            else:
+                try:
+                    temp[idx]=np.eye(4)[mapping[ele]]
+                except:
+                    temp[idx]=[0.0,0.0,0.0,0.0]
+        return [item for sub in temp for item in sub]
+
+
+
 ##########################################################################
 
 
@@ -236,7 +223,7 @@ def build_sampleweight(y_values):
 ##########################################################################
 
 
-def extract_model_name(model_type, include_distance_feature, include_sequence_features, balanced, trans_type,
+def extract_model_name(model_type, include_distance_feature, include_sequence_features,extra_nucleotides,balanced, trans_type,
                        trans_all_fold, trans_only_positive, exclude_targets_without_positives):
     """
     extract model name
@@ -261,30 +248,31 @@ def extract_model_name(model_type, include_distance_feature, include_sequence_fe
 ##########################################################################
 
 
-def prefix_and_suffix_path(model_type, k_fold_number, include_distance_feature, include_sequence_features, balanced,
+def prefix_and_suffix_path(model_type, k_fold_number, include_distance_feature, include_sequence_features,extra_nucleotides, balanced,
                            trans_type, trans_all_fold, trans_only_positive, exclude_targets_without_positives,
                            path_prefix):
     suffix = "_with_distance" if include_distance_feature else ""
     suffix += "" if include_sequence_features else "_without_sequence_features"
     suffix += ("_without_Kfold" if k_fold_number == 1 else "")
     suffix += ("" if balanced == 1 else "_imbalanced")
+    suffix += ("_extra_" + str(extra_nucleotides) if extra_nucleotides else "")
     if trans_type != "ln_x_plus_one_trans" and model_type != "classifier":
         suffix += "_" + trans_type
     path_prefix = "trans_only_positive/" + path_prefix if trans_only_positive else path_prefix
     path_prefix = "trans_on_entire_train_or_test_fold/" + path_prefix if trans_all_fold else path_prefix
     path_prefix = "drop_sg_rna_with_non_positives/" + path_prefix if exclude_targets_without_positives else path_prefix
-
+    path_prefix = str(extra_nucleotides) + "_"  + path_prefix if extra_nucleotides else path_prefix
     return path_prefix, suffix
 
 
-def extract_model_path(model_type, k_fold_number, include_distance_feature, include_sequence_features,
+def extract_model_path(model_type, k_fold_number, include_distance_feature, include_sequence_features,extra_nucleotides,
                        balanced, trans_type, trans_all_fold, trans_only_positive, exclude_targets_without_positives,
                        fold_index, path_prefix):
     """
     extract model path
     """
     path_prefix, suffix = prefix_and_suffix_path(model_type, k_fold_number, include_distance_feature,
-                                                 include_sequence_features, balanced, trans_type, trans_all_fold,
+                                                 include_sequence_features,extra_nucleotides, balanced, trans_type, trans_all_fold,
                                                  trans_only_positive, exclude_targets_without_positives, path_prefix)
     dir_path = general_utilities.FILES_DIR + "models_" + \
         str(k_fold_number) + "fold/" + path_prefix + model_type + \
@@ -294,13 +282,13 @@ def extract_model_path(model_type, k_fold_number, include_distance_feature, incl
 
 
 def extract_model_results_path(model_type, data_type, k_fold_number, include_distance_feature,
-                               include_sequence_features, balanced, trans_type, trans_all_fold, trans_only_positive,
+                               include_sequence_features,extra_nucleotides, balanced, trans_type, trans_all_fold, trans_only_positive,
                                exclude_targets_without_positives, evaluate_only_distance, suffix_add, path_prefix):
     """
     extract model results path
     """
     path_prefix, suffix = prefix_and_suffix_path(model_type, k_fold_number, include_distance_feature,
-                                                 include_sequence_features, balanced, trans_type, trans_all_fold,
+                                                 include_sequence_features,extra_nucleotides, balanced, trans_type, trans_all_fold,
                                                  trans_only_positive, exclude_targets_without_positives, path_prefix)
     suffix = suffix + ("" if evaluate_only_distance is None else "_distance_" + str(evaluate_only_distance))
     suffix = suffix + suffix_add
