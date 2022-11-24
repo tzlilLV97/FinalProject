@@ -1,6 +1,7 @@
 """
 test utilities
 """
+
 import random
 from pathlib import Path
 import xgboost as xgb
@@ -16,7 +17,7 @@ from SysEvalOffTarget_src.utilities import create_fold_sets, build_sequence_feat
 from SysEvalOffTarget_src import general_utilities
 
 random.seed(general_utilities.SEED)
-
+i = 0
 
 def score_function_classifier(y_test, y_pred, y_proba):
     """
@@ -91,7 +92,7 @@ def load_fold_dataset(data_type, target_fold, targets, positive_df, negative_df,
 
 
 def load_model(model_type, k_fold_number, fold_index, gpu, trans_type, balanced,
-               include_distance_feature, include_sequence_features, path_prefix,
+               include_distance_feature, include_sequence_features, extra_nucleotides,path_prefix,
                trans_all_fold, trans_only_positive, exclude_targets_without_positives):
     """
     load model
@@ -109,7 +110,7 @@ def load_model(model_type, k_fold_number, fold_index, gpu, trans_type, balanced,
         model.set_params(**{'tree_method': 'gpu_hist'})
 
     dir_path = extract_model_path(model_type, k_fold_number, include_distance_feature,
-                                  include_sequence_features, balanced, trans_type, trans_all_fold,
+                                  include_sequence_features, extra_nucleotides, balanced, trans_type, trans_all_fold,
                                   trans_only_positive, exclude_targets_without_positives,
                                   fold_index, path_prefix)
     model.load_model(dir_path)
@@ -119,7 +120,7 @@ def load_model(model_type, k_fold_number, fold_index, gpu, trans_type, balanced,
 
 def model_folds_predictions(positive_df, negative_df, targets, nucleotides_to_position_mapping,
                             data_type="CHANGEseq", model_type="classifier", k_fold_number=10,
-                            include_distance_feature=False, include_sequence_features=True,
+                            include_distance_feature=False, include_sequence_features=True,extra_nucleotides=0,
                             balanced=False, trans_type="ln_x_plus_one_trans", trans_all_fold=False,
                             trans_only_positive=False, exclude_targets_without_positives=False,
                             evaluate_only_distance=None, add_to_results_table=False,
@@ -139,7 +140,7 @@ def model_folds_predictions(positive_df, negative_df, targets, nucleotides_to_po
         dir_path = results_table_path
 
     # load the model name
-    model_name = utilities.extract_model_name(model_type, include_distance_feature, include_sequence_features,
+    model_name = utilities.extract_model_name(model_type, include_distance_feature, include_sequence_features,extra_nucleotides,
                                               balanced, trans_type, trans_all_fold, trans_only_positive,
                                               exclude_targets_without_positives)
 
@@ -154,7 +155,7 @@ def model_folds_predictions(positive_df, negative_df, targets, nucleotides_to_po
                                                                evaluate_only_distance=evaluate_only_distance,
                                                                exclude_targets_without_positives=False)
         model = load_model(model_type, k_fold_number, i, gpu, trans_type, balanced,
-                           include_distance_feature, include_sequence_features, path_prefix,
+                           include_distance_feature, include_sequence_features, extra_nucleotides, path_prefix,
                            trans_all_fold, trans_only_positive, exclude_targets_without_positives)
         # predict and insert the predictions into the predictions dfs
 
@@ -162,13 +163,10 @@ def model_folds_predictions(positive_df, negative_df, targets, nucleotides_to_po
 
             sequence_features_test = build_sequence_features(dataset_df, nucleotides_to_position_mapping,
                                                              include_distance_feature=include_distance_feature,
-                                                             include_sequence_features=include_sequence_features)
+                                                             include_sequence_features=include_sequence_features,extra_nucleotides=extra_nucleotides)
             if model_type == "classifier":
                 predictions = model.predict_proba(sequence_features_test)[:, 1]
             else:
-                print(sequence_features_test)
-                print("AOJKMFOIMFOAKIFMAOLFMA")
-                print(sequence_features_test[0])
                 predictions = model.predict(sequence_features_test)
 
             dataset_df[model_name] = predictions
@@ -191,7 +189,7 @@ def model_folds_predictions(positive_df, negative_df, targets, nucleotides_to_po
             results_df.to_csv(dir_path, index=False)
         else:
             Path(dir_path).parent.mkdir(parents=True, exist_ok=True)
-            results_df.to_csv(dir_path, index=False)
+            results_df.to_csv(dir_path)
 
     return predictions_dfs[0], predictions_dfs[1], results_df
 
@@ -411,7 +409,7 @@ def compute_evaluation_scores(target, model_type, model_name, target_predictions
 
 def evaluation(positive_df, negative_df, targets, nucleotides_to_position_mapping, data_type="CHANGEseq",
                model_type="classifier", k_fold_number=10, include_distance_feature=False,
-               include_sequence_features=True, balanced=True, trans_type="ln_x_plus_one_trans", ##CHANGED BALANCED TO FALSE FROM TRUE
+               include_sequence_features=True, extra_nucleotides=0,balanced=True, trans_type="ln_x_plus_one_trans", ##CHANGED BALANCED TO FALSE FROM TRUE
                trans_all_fold=False, trans_only_positive=False, exclude_targets_without_positives=False,
                evaluate_only_distance=None, gpu=True, suffix_add="", models_path_prefix="",
                results_path_prefix=""):
@@ -419,7 +417,7 @@ def evaluation(positive_df, negative_df, targets, nucleotides_to_position_mappin
     the test function
     """
     # load the model name
-    model_name = utilities.extract_model_name(model_type, include_distance_feature, include_sequence_features,
+    model_name = utilities.extract_model_name(model_type, include_distance_feature, include_sequence_features,extra_nucleotides,
                                               balanced, trans_type, trans_all_fold, trans_only_positive,
                                               exclude_targets_without_positives)
     # create the scores results dataframe
@@ -429,7 +427,7 @@ def evaluation(positive_df, negative_df, targets, nucleotides_to_position_mappin
         model_folds_predictions(positive_df, negative_df, targets, nucleotides_to_position_mapping,
                                 data_type=data_type, model_type=model_type, k_fold_number=k_fold_number,
                                 include_distance_feature=include_distance_feature,
-                                include_sequence_features=include_sequence_features, balanced=balanced,
+                                include_sequence_features=include_sequence_features,extra_nucleotides=extra_nucleotides, balanced=balanced,
                                 trans_type=trans_type, trans_all_fold=trans_all_fold,
                                 trans_only_positive=trans_only_positive,
                                 exclude_targets_without_positives=exclude_targets_without_positives,
@@ -466,7 +464,7 @@ def evaluation(positive_df, negative_df, targets, nucleotides_to_position_mappin
     results_df = results_df.append(all_targets_scores, ignore_index=True)
 
     dir_path = extract_model_results_path(model_type, data_type, k_fold_number, include_distance_feature,
-                                          include_sequence_features, balanced, trans_type, trans_all_fold,
+                                          include_sequence_features, extra_nucleotides,balanced, trans_type, trans_all_fold,
                                           trans_only_positive, exclude_targets_without_positives,
                                           evaluate_only_distance, suffix_add, results_path_prefix)
     Path(dir_path).parent.mkdir(parents=True, exist_ok=True)
@@ -474,6 +472,13 @@ def evaluation(positive_df, negative_df, targets, nucleotides_to_position_mappin
                                           include_sequence_features, balanced, trans_type, trans_all_fold,
                                           trans_only_positive, exclude_targets_without_positives,
                                           evaluate_only_distance, suffix_add, results_path_prefix)
-    results_df.to_csv(dir_path)
+    global i
+    print(i)
+    path = str(model_type) +"_" + str(data_type) + "_" +str(suffix_add)+ "_" + str(i) + ".csv"
 
+   # path = str(model_type) + str(i) + ".csv"
+    print(path)
+    results_df.to_csv(path)
+    #global i
+    i+= 1
     return results_df
